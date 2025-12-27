@@ -14,16 +14,175 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          address: string | null
+          avatar_url: string | null
+          class: string | null
+          created_at: string
+          email: string
+          first_name: string
+          grade: string | null
+          id: string
+          id_number: string | null
+          last_name: string
+          parent_email: string | null
+          parent_name: string | null
+          parent_phone: string | null
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          avatar_url?: string | null
+          class?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          grade?: string | null
+          id?: string
+          id_number?: string | null
+          last_name: string
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          avatar_url?: string | null
+          class?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          grade?: string | null
+          id?: string
+          id_number?: string | null
+          last_name?: string
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      registrations: {
+        Row: {
+          address: string | null
+          admin_notes: string | null
+          class: string | null
+          created_at: string
+          email: string
+          first_name: string
+          grade: string | null
+          id: string
+          id_document_url: string | null
+          id_number: string | null
+          last_name: string
+          parent_email: string | null
+          parent_name: string | null
+          parent_phone: string | null
+          payment_proof_url: string | null
+          phone: string | null
+          proof_of_address_url: string | null
+          report_url: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          admin_notes?: string | null
+          class?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          grade?: string | null
+          id?: string
+          id_document_url?: string | null
+          id_number?: string | null
+          last_name: string
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          payment_proof_url?: string | null
+          phone?: string | null
+          proof_of_address_url?: string | null
+          report_url?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          admin_notes?: string | null
+          class?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          grade?: string | null
+          id?: string
+          id_document_url?: string | null
+          id_number?: string | null
+          last_name?: string
+          parent_email?: string | null
+          parent_name?: string | null
+          parent_phone?: string | null
+          payment_proof_url?: string | null
+          phone?: string | null
+          proof_of_address_url?: string | null
+          report_url?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "learner" | "teacher" | "grade_head" | "principal" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +309,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["learner", "teacher", "grade_head", "principal", "admin"],
+    },
   },
 } as const

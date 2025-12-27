@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { BookOpen, FileText, Calendar, Download, Clock, Search, GraduationCap, Calculator, FlaskConical, Globe, Cpu, Wrench } from "lucide-react";
+import schoolLab from "@/assets/school-science-lab.jpg";
 
 const subjects = [
   { name: "Mathematics", icon: Calculator },
@@ -42,17 +43,25 @@ export default function AcademicsPage() {
 
   return (
     <Layout>
-      {/* Header */}
-      <section className="py-16 lg:py-20 bg-card">
-        <div className="container mx-auto px-4">
-          <div className="max-w-2xl mx-auto text-center">
-            <span className="inline-block px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+      {/* Hero with Image */}
+      <section className="relative py-20 lg:py-28 overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src={schoolLab}
+            alt="Science laboratory"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/90 to-primary/70" />
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-2xl mx-auto text-center text-white">
+            <span className="inline-block px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm text-white text-sm font-medium mb-4">
               Academic Resources
             </span>
-            <h1 className="font-heading text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Learn & <span className="text-primary">Excel</span>
+            <h1 className="font-heading text-4xl lg:text-5xl font-bold mb-4">
+              Learn & Excel
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-white/90">
               Access past exam papers, timetables, and educational resources to help you succeed in your studies.
             </p>
           </div>

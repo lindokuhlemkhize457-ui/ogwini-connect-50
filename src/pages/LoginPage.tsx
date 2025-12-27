@@ -1,55 +1,81 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GraduationCap, Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { useAuth, useRoleRedirect } from "@/hooks/useAuth";
+import schoolClassroom from "@/assets/school-classroom.jpg";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { signIn, user, loading } = useAuth();
+  const { redirectToDashboard, isApproved } = useRoleRedirect();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!loading && user) {
+      redirectToDashboard();
+    }
+  }, [user, loading, isApproved]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Login logic will be implemented with backend
-    console.log("Login attempt:", { email, password });
+    setIsSubmitting(true);
+    
+    const { error } = await signIn(email, password);
+    
+    if (!error) {
+      // Redirect will happen via useEffect
+    }
+    
+    setIsSubmitting(false);
   };
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-card p-12 flex-col justify-between">
-        <div>
+      {/* Left Side - Image */}
+      <div className="hidden lg:block lg:w-1/2 relative">
+        <img
+          src={schoolClassroom}
+          alt="Ogwini Comprehensive Technical High School"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/60" />
+        <div className="absolute inset-0 flex flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <GraduationCap className="w-7 h-7 text-primary-foreground" />
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <GraduationCap className="w-7 h-7 text-white" />
             </div>
             <div>
-              <span className="font-heading font-bold text-lg text-foreground">Ogwini</span>
-              <p className="text-xs text-muted-foreground">Technical High School</p>
+              <span className="font-heading font-bold text-lg">Ogwini</span>
+              <p className="text-xs text-white/80">Technical High School</p>
             </div>
           </Link>
-        </div>
-        
-        <div>
-          <h1 className="font-heading text-4xl font-bold text-foreground mb-4">
-            Welcome Back to
-            <br />
-            <span className="text-primary">Ogwini</span> Portal
-          </h1>
-          <p className="text-muted-foreground max-w-md">
-            Access your personalized dashboard, academic resources, and stay connected with your school community.
+          
+          <div>
+            <h1 className="font-heading text-4xl font-bold mb-4">
+              Welcome Back to
+              <br />
+              Ogwini Portal
+            </h1>
+            <p className="text-white/90 max-w-md">
+              Access your personalized dashboard, academic resources, and stay connected with your school community.
+            </p>
+          </div>
+
+          <p className="text-sm text-white/70">
+            © {new Date().getFullYear()} Ogwini Comprehensive Technical High School
           </p>
         </div>
-
-        <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Ogwini Comprehensive Technical High School
-        </p>
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md">
           <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 lg:hidden">
             <ArrowLeft className="w-4 h-4" />
@@ -113,8 +139,8 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Sign In
+            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Signing In..." : "Sign In"}
             </Button>
           </form>
 

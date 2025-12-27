@@ -1,33 +1,48 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { GraduationCap, Mail, Lock, Eye, EyeOff, User, ArrowLeft, Phone } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import schoolLab from "@/assets/school-science-lab.jpg";
 
-const userTypes = [
+type RoleType = "learner" | "teacher" | "admin";
+
+const userTypes: { value: RoleType; label: string }[] = [
   { value: "learner", label: "Learner" },
   { value: "teacher", label: "Teacher" },
-  { value: "parent", label: "Parent" },
+  { value: "admin", label: "Admin" },
 ];
 
 export default function SignupPage() {
   const { toast } = useToast();
+  const { signUp, user, loading } = useAuth();
+  const navigate = useNavigate();
+  
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
-    userType: "learner",
+    userType: "learner" as RoleType,
   });
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/portal");
+    }
+  }, [user, loading, navigate]);
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validatePhone = (phone: string) => /^(\+27|0)\d{9}$/.test(phone.replace(/\s/g, ""));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateEmail(formData.email)) {
@@ -35,7 +50,7 @@ export default function SignupPage() {
       return;
     }
 
-    if (!validatePhone(formData.phone)) {
+    if (formData.phone && !validatePhone(formData.phone)) {
       toast({ title: "Invalid Phone", description: "Please enter a valid SA phone number.", variant: "destructive" });
       return;
     }
@@ -50,44 +65,62 @@ export default function SignupPage() {
       return;
     }
 
-    // Signup logic will be implemented with backend
-    toast({ title: "Account Created!", description: "Please check your email to verify your account." });
+    setIsSubmitting(true);
+
+    const { error } = await signUp(formData.email, formData.password, {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      role: formData.userType,
+      phone: formData.phone,
+    });
+
+    if (!error) {
+      navigate("/portal");
+    }
+
+    setIsSubmitting(false);
   };
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-card p-12 flex-col justify-between">
-        <div>
+      {/* Left Side - Image */}
+      <div className="hidden lg:block lg:w-1/2 relative">
+        <img
+          src={schoolLab}
+          alt="Ogwini Comprehensive Technical High School Science Lab"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary/60" />
+        <div className="absolute inset-0 flex flex-col justify-between p-12 text-white">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <GraduationCap className="w-7 h-7 text-primary-foreground" />
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <GraduationCap className="w-7 h-7 text-white" />
             </div>
             <div>
-              <span className="font-heading font-bold text-lg text-foreground">Ogwini</span>
-              <p className="text-xs text-muted-foreground">Technical High School</p>
+              <span className="font-heading font-bold text-lg">Ogwini</span>
+              <p className="text-xs text-white/80">Technical High School</p>
             </div>
           </Link>
-        </div>
-        
-        <div>
-          <h1 className="font-heading text-4xl font-bold text-foreground mb-4">
-            Join the
-            <br />
-            <span className="text-primary">Ogwini</span> Community
-          </h1>
-          <p className="text-muted-foreground max-w-md">
-            Create your account to access educational resources, track academic progress, and stay connected with the school.
+          
+          <div>
+            <h1 className="font-heading text-4xl font-bold mb-4">
+              Join the
+              <br />
+              Ogwini Community
+            </h1>
+            <p className="text-white/90 max-w-md">
+              Create your account to access educational resources, track academic progress, and stay connected with the school.
+            </p>
+          </div>
+
+          <p className="text-sm text-white/70">
+            © {new Date().getFullYear()} Ogwini Comprehensive Technical High School
           </p>
         </div>
-
-        <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Ogwini Comprehensive Technical High School
-        </p>
       </div>
 
       {/* Right Side - Signup Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-8 bg-background overflow-y-auto">
         <div className="w-full max-w-md">
           <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 lg:hidden">
             <ArrowLeft className="w-4 h-4" />
@@ -128,17 +161,27 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="fullName">Full Name</Label>
-              <div className="relative mt-1.5">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
                 <Input
-                  id="fullName"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="pl-10"
-                  placeholder="Enter your full name"
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  placeholder="First name"
                   required
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  placeholder="Last name"
+                  required
+                  className="mt-1.5"
                 />
               </div>
             </div>
@@ -160,7 +203,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Phone Number (Optional)</Label>
               <div className="relative mt-1.5">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -169,7 +212,6 @@ export default function SignupPage() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="pl-10"
                   placeholder="0XX XXX XXXX"
-                  required
                 />
               </div>
             </div>
@@ -184,7 +226,7 @@ export default function SignupPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="pl-10 pr-10"
-                  placeholder="Create a password"
+                  placeholder="Create a password (min 8 chars)"
                   required
                 />
                 <button
@@ -213,8 +255,8 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" size="lg">
-              Create Account
+            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
 
