@@ -14,6 +14,201 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          target_audience: string[] | null
+          target_grades: string[] | null
+          title: string
+          type: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          target_audience?: string[] | null
+          target_grades?: string[] | null
+          title: string
+          type?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          target_audience?: string[] | null
+          target_grades?: string[] | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      email_logs: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          recipients: string[]
+          sender_id: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          recipients: string[]
+          sender_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          recipients?: string[]
+          sender_id?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          event_type: string
+          id: string
+          start_date: string
+          target_grades: string[] | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          event_type: string
+          id?: string
+          start_date: string
+          target_grades?: string[] | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          event_type?: string
+          id?: string
+          start_date?: string
+          target_grades?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
+      learning_materials: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_url: string
+          grade: string | null
+          id: string
+          subject: string | null
+          title: string
+          type: string
+          updated_at: string
+          uploaded_by: string | null
+          week: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_url: string
+          grade?: string | null
+          id?: string
+          subject?: string | null
+          title: string
+          type: string
+          updated_at?: string
+          uploaded_by?: string | null
+          week?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_url?: string
+          grade?: string | null
+          id?: string
+          subject?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          week?: string | null
+        }
+        Relationships: []
+      }
+      marks: {
+        Row: {
+          assessment_name: string
+          assessment_type: string
+          created_at: string
+          feedback: string | null
+          id: string
+          learner_id: string
+          marks_obtained: number
+          recorded_by: string | null
+          subject: string
+          term: string | null
+          total_marks: number
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          assessment_name: string
+          assessment_type: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          learner_id: string
+          marks_obtained: number
+          recorded_by?: string | null
+          subject: string
+          term?: string | null
+          total_marks: number
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          assessment_name?: string
+          assessment_type?: string
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          learner_id?: string
+          marks_obtained?: number
+          recorded_by?: string | null
+          subject?: string
+          term?: string | null
+          total_marks?: number
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -68,6 +263,130 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_questions: {
+        Row: {
+          correct_answer: string
+          created_at: string
+          id: string
+          marks: number | null
+          options: Json | null
+          order_num: number | null
+          question_text: string
+          question_type: string
+          quiz_id: string
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string
+          id?: string
+          marks?: number | null
+          options?: Json | null
+          order_num?: number | null
+          question_text: string
+          question_type: string
+          quiz_id: string
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          marks?: number | null
+          options?: Json | null
+          order_num?: number | null
+          question_text?: string
+          question_type?: string
+          quiz_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_submissions: {
+        Row: {
+          answers: Json
+          id: string
+          quiz_id: string
+          score: number | null
+          submitted_at: string
+          total_marks: number | null
+          user_id: string
+        }
+        Insert: {
+          answers: Json
+          id?: string
+          quiz_id: string
+          score?: number | null
+          submitted_at?: string
+          total_marks?: number | null
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          id?: string
+          quiz_id?: string
+          score?: number | null
+          submitted_at?: string
+          total_marks?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_submissions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_minutes: number | null
+          grade: string
+          id: string
+          status: string
+          subject: string
+          title: string
+          total_marks: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          grade: string
+          id?: string
+          status?: string
+          subject: string
+          title: string
+          total_marks?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          grade?: string
+          id?: string
+          status?: string
+          subject?: string
+          title?: string
+          total_marks?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
