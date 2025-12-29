@@ -30,21 +30,19 @@ interface FormData {
   parentName: string;
   parentPhone: string;
   parentEmail: string;
+  subject: string;
 }
 
 interface UploadedFiles {
   idDocument: File | null;
   proofOfAddress: File | null;
   proofOfPayment: File | null;
+  qualifications: File | null;
+  lastReport: File | null;
 }
 
-const grades = [
-  { name: "Grade 8", available: true },
-  { name: "Grade 9", available: true },
-  { name: "Grade 10", available: true },
-  { name: "Grade 11", available: true },
-  { name: "Grade 12", available: true },
-];
+const grades = ["Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+const subjects = ["Mathematics", "Physical Sciences", "Life Sciences", "English", "Afrikaans", "Geography", "History", "Accounting", "Business Studies", "Technical Drawing", "Life Orientation"];
 
 const bankingDetails = {
   bankName: "FNB (First National Bank)",
@@ -85,13 +83,18 @@ export default function SignupPage() {
     parentName: "",
     parentPhone: "",
     parentEmail: "",
+    subject: "",
   });
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFiles>({
     idDocument: null,
     proofOfAddress: null,
     proofOfPayment: null,
+    qualifications: null,
+    lastReport: null,
   });
+
+  const [uploading, setUploading] = useState(false);
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -115,6 +118,20 @@ export default function SignupPage() {
     setCopiedField(field);
     toast({ title: "Copied!", description: `${field} copied to clipboard.` });
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const uploadFile = async (file: File, bucket: string, path: string): Promise<string | null> => {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(path, file, { cacheControl: '3600', upsert: true });
+    
+    if (error) {
+      console.error('Upload error:', error);
+      return null;
+    }
+    
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
+    return urlData.publicUrl;
   };
 
   const nextStep = () => {
@@ -153,7 +170,10 @@ export default function SignupPage() {
 
   const handleSubmit = async () => {
     setLoading(true);
+    setUploading(true);
+    
     try {
+      // First create the user account
       const { error } = await signUp(formData.email, formData.password, {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -163,35 +183,82 @@ export default function SignupPage() {
 
       if (error) {
         setLoading(false);
+        setUploading(false);
         return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for session to be established
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
         const userId = session.user.id;
+        let idDocUrl = null;
+        let proofOfAddressUrl = null;
+        let paymentProofUrl = null;
+        let reportUrl = null;
 
+        // Upload files to storage
+        if (uploadedFiles.idDocument) {
+          idDocUrl = await uploadFile(
+            uploadedFiles.idDocument, 
+            'registration-docs', 
+            `${userId}/id-document-${Date.now()}.${uploadedFiles.idDocument.name.split('.').pop()}`
+          );
+        }
+
+        if (uploadedFiles.proofOfAddress) {
+          proofOfAddressUrl = await uploadFile(
+            uploadedFiles.proofOfAddress, 
+            'registration-docs', 
+            `${userId}/proof-of-address-${Date.now()}.${uploadedFiles.proofOfAddress.name.split('.').pop()}`
+          );
+        }
+
+        if (uploadedFiles.proofOfPayment) {
+          paymentProofUrl = await uploadFile(
+            uploadedFiles.proofOfPayment, 
+            'payment-proofs', 
+            `${userId}/payment-proof-${Date.now()}.${uploadedFiles.proofOfPayment.name.split('.').pop()}`
+          );
+        }
+
+        if (uploadedFiles.lastReport) {
+          reportUrl = await uploadFile(
+            uploadedFiles.lastReport, 
+            'registration-docs', 
+            `${userId}/last-report-${Date.now()}.${uploadedFiles.lastReport.name.split('.').pop()}`
+          );
+        }
+
+        // Update registration with all details
         await supabase
           .from('registrations')
           .update({
             phone: formData.phone,
             id_number: formData.idNumber,
             address: formData.address,
-            grade: formData.grade,
+            grade: formData.role === "learner" ? formData.grade : (formData.role === "grade_head" ? formData.grade : null),
             parent_name: formData.parentName,
             parent_phone: formData.parentPhone,
             parent_email: formData.parentEmail,
+            id_document_url: idDocUrl,
+            proof_of_address_url: proofOfAddressUrl,
+            payment_proof_url: paymentProofUrl,
+            report_url: reportUrl,
           })
           .eq('user_id', userId);
       }
+
+      setUploading(false);
 
       toast({
         title: "Registration Successful!",
         description: "Welcome! Redirecting to your dashboard...",
       });
 
+      // Navigate to role-specific dashboard
       setTimeout(() => {
         switch (formData.role) {
           case "learner":
@@ -223,6 +290,7 @@ export default function SignupPage() {
       });
     }
     setLoading(false);
+    setUploading(false);
   };
 
   const totalSteps = formData.role === "learner" ? 5 : 4;
@@ -429,7 +497,7 @@ export default function SignupPage() {
                   </h2>
 
                   <div>
-                    <Label htmlFor="idNumber" className="font-semibold">SA ID Number</Label>
+                    <Label htmlFor="idNumber" className="font-semibold">SA ID Number (Student/Staff Number)</Label>
                     <Input 
                       id="idNumber" 
                       name="idNumber" 
@@ -456,59 +524,57 @@ export default function SignupPage() {
                   {formData.role === "learner" && (
                     <>
                       <div>
-                        <Label htmlFor="grade" className="font-semibold">Grade *</Label>
-                        <select 
-                          id="grade" 
-                          name="grade" 
-                          value={formData.grade} 
+                        <Label htmlFor="grade" className="font-semibold">Grade Applying For *</Label>
+                        <select
+                          id="grade"
+                          name="grade"
+                          value={formData.grade}
                           onChange={handleChange}
-                          className="w-full h-12 px-4 rounded-lg bg-secondary border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-base"
+                          className="w-full h-12 px-4 rounded-lg bg-secondary border border-input text-foreground"
                         >
                           <option value="">Select a grade</option>
-                          {grades.map((grade) => (
-                            <option key={grade.name} value={grade.name}>
-                              {grade.name}
-                            </option>
+                          {grades.map((g) => (
+                            <option key={g} value={g}>{g}</option>
                           ))}
                         </select>
                       </div>
 
-                      <div className="pt-4 border-t border-border">
-                        <h3 className="font-bold text-foreground mb-4">Parent/Guardian Information</h3>
+                      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                        <h3 className="font-semibold text-foreground mb-3">Parent/Guardian Information</h3>
                         <div className="space-y-4">
                           <div>
-                            <Label htmlFor="parentName" className="font-semibold">Parent Name</Label>
+                            <Label htmlFor="parentName">Parent/Guardian Name</Label>
                             <Input 
                               id="parentName" 
                               name="parentName" 
                               value={formData.parentName} 
-                              onChange={handleChange} 
-                              placeholder="Parent/Guardian full name"
-                              className="h-12 text-base"
+                              onChange={handleChange}
+                              placeholder="Full name"
+                              className="h-11"
                             />
                           </div>
-                          <div className="grid sm:grid-cols-2 gap-4">
+                          <div className="grid sm:grid-cols-2 gap-3">
                             <div>
-                              <Label htmlFor="parentPhone" className="font-semibold">Parent Phone</Label>
+                              <Label htmlFor="parentPhone">Phone</Label>
                               <Input 
                                 id="parentPhone" 
                                 name="parentPhone" 
                                 value={formData.parentPhone} 
-                                onChange={handleChange} 
+                                onChange={handleChange}
                                 placeholder="0XX XXX XXXX"
-                                className="h-12 text-base"
+                                className="h-11"
                               />
                             </div>
                             <div>
-                              <Label htmlFor="parentEmail" className="font-semibold">Parent Email</Label>
+                              <Label htmlFor="parentEmail">Email</Label>
                               <Input 
                                 id="parentEmail" 
                                 name="parentEmail" 
                                 type="email"
                                 value={formData.parentEmail} 
-                                onChange={handleChange} 
+                                onChange={handleChange}
                                 placeholder="parent@email.com"
-                                className="h-12 text-base"
+                                className="h-11"
                               />
                             </div>
                           </div>
@@ -517,168 +583,233 @@ export default function SignupPage() {
                     </>
                   )}
 
+                  {(formData.role === "teacher" || formData.role === "grade_head") && (
+                    <div>
+                      <Label htmlFor="subject" className="font-semibold">Primary Subject</Label>
+                      <select
+                        id="subject"
+                        name="subject"
+                        value={formData.subject}
+                        onChange={handleChange}
+                        className="w-full h-12 px-4 rounded-lg bg-secondary border border-input text-foreground"
+                      >
+                        <option value="">Select a subject</option>
+                        {subjects.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {formData.role === "grade_head" && (
+                    <div>
+                      <Label htmlFor="grade" className="font-semibold">Grade Assigned</Label>
+                      <select
+                        id="grade"
+                        name="grade"
+                        value={formData.grade}
+                        onChange={handleChange}
+                        className="w-full h-12 px-4 rounded-lg bg-secondary border border-input text-foreground"
+                      >
+                        <option value="">Select a grade</option>
+                        {grades.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Document Uploads */}
-                  <div className="pt-4 border-t border-border space-y-4">
-                    <h3 className="font-bold text-foreground">Upload Documents (Optional)</h3>
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <h3 className="font-semibold text-foreground">Upload Documents (Optional)</h3>
                     
-                    <div className="border-2 border-dashed border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
                       <Label htmlFor="idDocument" className="cursor-pointer">
                         <div className="flex items-center gap-3">
                           <FileText className="w-8 h-8 text-muted-foreground" />
-                          <div className="flex-1">
-                            <p className="font-semibold text-foreground">ID Document / Birth Certificate</p>
-                            <p className="text-xs text-muted-foreground">PDF, JPG or PNG</p>
+                          <div>
+                            <p className="font-medium text-foreground">ID Document / Birth Certificate</p>
+                            <p className="text-xs text-muted-foreground">PDF, JPG or PNG (max 5MB)</p>
                           </div>
-                          {uploadedFiles.idDocument && <CheckCircle className="w-6 h-6 text-primary" />}
+                          {uploadedFiles.idDocument && <CheckCircle className="w-5 h-5 text-primary ml-auto" />}
                         </div>
                       </Label>
                       <Input id="idDocument" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload("idDocument")} className="hidden" />
-                      {uploadedFiles.idDocument && <p className="text-xs text-primary mt-2 font-medium">{uploadedFiles.idDocument.name}</p>}
+                      {uploadedFiles.idDocument && <p className="text-xs text-primary mt-2">{uploadedFiles.idDocument.name}</p>}
                     </div>
 
-                    <div className="border-2 border-dashed border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
                       <Label htmlFor="proofOfAddress" className="cursor-pointer">
                         <div className="flex items-center gap-3">
                           <MapPin className="w-8 h-8 text-muted-foreground" />
-                          <div className="flex-1">
-                            <p className="font-semibold text-foreground">Proof of Address</p>
+                          <div>
+                            <p className="font-medium text-foreground">Proof of Address</p>
                             <p className="text-xs text-muted-foreground">Utility bill or bank statement</p>
                           </div>
-                          {uploadedFiles.proofOfAddress && <CheckCircle className="w-6 h-6 text-primary" />}
+                          {uploadedFiles.proofOfAddress && <CheckCircle className="w-5 h-5 text-primary ml-auto" />}
                         </div>
                       </Label>
                       <Input id="proofOfAddress" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload("proofOfAddress")} className="hidden" />
-                      {uploadedFiles.proofOfAddress && <p className="text-xs text-primary mt-2 font-medium">{uploadedFiles.proofOfAddress.name}</p>}
+                      {uploadedFiles.proofOfAddress && <p className="text-xs text-primary mt-2">{uploadedFiles.proofOfAddress.name}</p>}
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {/* Step 4: Payment (for learners) */}
-              {step === 4 && formData.role === "learner" && (
-                <div className="space-y-6">
-                  <h2 className="font-heading text-2xl font-bold text-foreground mb-2 flex items-center gap-3">
-                    <CreditCard className="w-7 h-7 text-primary" />
-                    School Fees Payment
-                  </h2>
-
-                  <div className="bg-primary/5 border-2 border-primary/20 rounded-xl p-6">
-                    <h3 className="font-bold text-foreground mb-4 text-lg">Banking Details</h3>
-                    <div className="space-y-3">
-                      {[
-                        { label: "Bank Name", value: bankingDetails.bankName },
-                        { label: "Account Name", value: bankingDetails.accountName },
-                        { label: "Account Number", value: bankingDetails.accountNumber },
-                        { label: "Branch Code", value: bankingDetails.branchCode },
-                        { label: "Reference", value: `REG-${formData.idNumber || "[YOUR ID]"}` },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center justify-between bg-background rounded-lg p-3 border border-border">
-                          <div>
-                            <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
-                            <p className="font-mono text-sm text-foreground font-bold">{item.value}</p>
+                    {formData.role === "learner" && (
+                      <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                        <Label htmlFor="lastReport" className="cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-8 h-8 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium text-foreground">Latest School Report</p>
+                              <p className="text-xs text-muted-foreground">Previous school's report card</p>
+                            </div>
+                            {uploadedFiles.lastReport && <CheckCircle className="w-5 h-5 text-primary ml-auto" />}
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(item.value, item.label)}
-                            className="h-9 w-9 p-0"
-                          >
-                            {copiedField === item.label ? <Check className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-accent/10 border-2 border-accent/30">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-6 h-6 text-accent flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold text-foreground">Payment Instructions</p>
-                        <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                          <li>• Use EFT (Electronic Funds Transfer)</li>
-                          <li>• Use your ID number as reference</li>
-                          <li>• Upload proof of payment below</li>
-                        </ul>
+                        </Label>
+                        <Input id="lastReport" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload("lastReport")} className="hidden" />
+                        {uploadedFiles.lastReport && <p className="text-xs text-primary mt-2">{uploadedFiles.lastReport.name}</p>}
                       </div>
-                    </div>
-                  </div>
+                    )}
 
-                  <div className="border-2 border-dashed border-primary/30 rounded-xl p-6 hover:border-primary transition-colors bg-primary/5">
-                    <Label htmlFor="proofOfPayment" className="cursor-pointer">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-primary text-white">
-                          <Upload className="w-8 h-8" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-foreground text-lg">Upload Proof of Payment</p>
-                          <p className="text-sm text-muted-foreground">Bank confirmation or screenshot</p>
-                        </div>
-                        {uploadedFiles.proofOfPayment && <CheckCircle className="w-8 h-8 text-primary" />}
+                    {(formData.role === "teacher" || formData.role === "grade_head" || formData.role === "principal") && (
+                      <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                        <Label htmlFor="qualifications" className="cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-8 h-8 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium text-foreground">Qualifications / CV</p>
+                              <p className="text-xs text-muted-foreground">Teaching certificate, degrees, CV</p>
+                            </div>
+                            {uploadedFiles.qualifications && <CheckCircle className="w-5 h-5 text-primary ml-auto" />}
+                          </div>
+                        </Label>
+                        <Input id="qualifications" type="file" accept=".pdf,.doc,.docx" onChange={handleFileUpload("qualifications")} className="hidden" />
+                        {uploadedFiles.qualifications && <p className="text-xs text-primary mt-2">{uploadedFiles.qualifications.name}</p>}
                       </div>
-                    </Label>
-                    <Input id="proofOfPayment" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload("proofOfPayment")} className="hidden" />
-                    {uploadedFiles.proofOfPayment && (
-                      <p className="text-sm text-primary mt-3 font-bold">{uploadedFiles.proofOfPayment.name}</p>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Final Step - Complete */}
+              {/* Step 4: Payment (Learners only) */}
+              {step === 4 && formData.role === "learner" && (
+                <div className="space-y-6">
+                  <h2 className="font-heading text-2xl font-bold text-foreground mb-2 flex items-center gap-3">
+                    <CreditCard className="w-7 h-7 text-primary" />
+                    Registration Payment
+                  </h2>
+
+                  <div className="p-6 rounded-xl bg-primary/5 border-2 border-primary/20">
+                    <h3 className="font-bold text-foreground mb-4">Banking Details for EFT</h3>
+                    <div className="space-y-3">
+                      {Object.entries(bankingDetails).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-background">
+                          <div>
+                            <p className="text-xs text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                            <p className="font-mono font-bold text-foreground">{value}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(value, key)}
+                            className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                          >
+                            {copiedField === key ? <Check className="w-5 h-5 text-primary" /> : <Copy className="w-5 h-5 text-muted-foreground" />}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
+                      <p className="text-sm text-foreground">
+                        <strong>Important:</strong> Use your ID number as reference: <span className="font-mono font-bold">REG-{formData.idNumber || "[YOUR ID NUMBER]"}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-dashed border-border rounded-lg p-6 hover:border-primary/50 transition-colors">
+                    <Label htmlFor="proofOfPayment" className="cursor-pointer block text-center">
+                      <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="font-semibold text-foreground mb-1">Upload Proof of Payment</p>
+                      <p className="text-xs text-muted-foreground mb-3">Screenshot or PDF of your EFT confirmation</p>
+                      <Button type="button" variant="outline" size="sm">Browse Files</Button>
+                    </Label>
+                    <Input id="proofOfPayment" type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileUpload("proofOfPayment")} className="hidden" />
+                    {uploadedFiles.proofOfPayment && (
+                      <div className="mt-4 flex items-center gap-2 justify-center">
+                        <CheckCircle className="w-5 h-5 text-primary" />
+                        <p className="text-sm text-primary font-medium">{uploadedFiles.proofOfPayment.name}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Final Step - Non-learner or Step 5 for learner */}
               {((step === 4 && formData.role !== "learner") || (step === 5 && formData.role === "learner")) && (
                 <div className="space-y-6 text-center">
                   <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                     <CheckCircle className="w-10 h-10 text-primary" />
                   </div>
-                  <h2 className="font-heading text-2xl font-bold text-foreground">Ready to Join!</h2>
+                  <h2 className="font-heading text-2xl font-bold text-foreground">Ready to Submit!</h2>
                   <p className="text-muted-foreground">
-                    Click the button below to complete your registration and access your {formData.role === "learner" ? "Learner" : formData.role === "teacher" ? "Teacher" : formData.role === "admin" ? "Admin" : formData.role === "principal" ? "Principal" : "Grade Head"} Dashboard
+                    Review your information and click submit to complete registration.
                   </p>
                   
-                  <div className="bg-primary/5 border-2 border-primary/20 rounded-xl p-4 text-left">
-                    <h3 className="font-bold text-foreground mb-2">Your Details:</h3>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      <li><strong>Name:</strong> {formData.firstName} {formData.lastName}</li>
-                      <li><strong>Email:</strong> {formData.email}</li>
-                      <li><strong>Role:</strong> {roleOptions.find(r => r.value === formData.role)?.label}</li>
-                      {formData.role === "learner" && <li><strong>Grade:</strong> {formData.grade}</li>}
-                    </ul>
+                  <div className="p-4 rounded-xl bg-secondary text-left">
+                    <h3 className="font-semibold text-foreground mb-3">Registration Summary</h3>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="text-muted-foreground">Role:</span> <span className="font-medium text-foreground capitalize">{formData.role.replace('_', ' ')}</span></p>
+                      <p><span className="text-muted-foreground">Name:</span> <span className="font-medium text-foreground">{formData.firstName} {formData.lastName}</span></p>
+                      <p><span className="text-muted-foreground">Email:</span> <span className="font-medium text-foreground">{formData.email}</span></p>
+                      {formData.idNumber && <p><span className="text-muted-foreground">ID Number:</span> <span className="font-medium text-foreground">{formData.idNumber}</span></p>}
+                      {formData.grade && <p><span className="text-muted-foreground">Grade:</span> <span className="font-medium text-foreground">{formData.grade}</span></p>}
+                    </div>
                   </div>
 
-                  <Button 
-                    onClick={handleSubmit} 
-                    disabled={loading}
-                    size="xl"
-                    className="w-full"
-                  >
-                    {loading ? "Creating Account..." : "Complete Registration"}
-                  </Button>
+                  <div className="p-4 rounded-xl bg-accent/10 border border-accent/20">
+                    <p className="text-sm text-foreground">
+                      <strong>Note:</strong> Your registration will be pending until approved by the school administrator. You will receive an email notification once approved.
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {/* Navigation */}
-              {!((step === 4 && formData.role !== "learner") || (step === 5 && formData.role === "learner")) && (
-                <div className="flex justify-between mt-8 pt-6 border-t border-border">
-                  {step > 1 && (
-                    <Button type="button" variant="outline" onClick={() => setStep(step - 1)} size="lg">
-                      Previous
-                    </Button>
-                  )}
-                  <Button type="button" className="ml-auto" onClick={nextStep} size="lg">
+              {/* Navigation Buttons */}
+              <div className="flex justify-between mt-8 pt-6 border-t border-border">
+                {step > 1 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setStep(step - 1)}
+                    disabled={loading}
+                  >
+                    Back
+                  </Button>
+                )}
+                {step === 1 && <div />}
+                
+                {step < totalSteps ? (
+                  <Button onClick={nextStep} className="ml-auto">
                     Next Step
                   </Button>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <Button 
+                    onClick={handleSubmit} 
+                    className="ml-auto"
+                    disabled={loading}
+                  >
+                    {loading ? (uploading ? "Uploading..." : "Submitting...") : "Complete Registration"}
+                  </Button>
+                )}
+              </div>
 
-            <p className="text-center text-muted-foreground text-sm mt-6">
-              Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline font-bold">
-                Sign In
-              </Link>
-            </p>
+              {/* Login Link */}
+              <div className="text-center mt-6">
+                <p className="text-sm text-muted-foreground">
+                  Already have an account?{" "}
+                  <Link to="/login" className="text-primary hover:underline font-semibold">
+                    Sign In
+                  </Link>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
